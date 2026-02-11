@@ -5,12 +5,12 @@ from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def customerOrderList(request):
 
-    page = request.GET.get("page", None)
+    page = request.GET.get("page", 1)
     search = request.GET.get("search")
     marketplace = request.GET.get("marketplace")
 
     response = list_unique_customers(
-        page=int(page) or 1, search=search, filters={"marketplace": marketplace}
+        page=int(page), search=search, filters={"marketplace": marketplace}
     )
     return response
 
