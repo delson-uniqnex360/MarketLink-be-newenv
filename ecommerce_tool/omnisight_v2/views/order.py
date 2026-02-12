@@ -1,17 +1,18 @@
-from omnisight_v2.operations import list_unique_customers
 from django.views.decorators.csrf import csrf_exempt
+from omnisight_v2.operations import order_list
 
 
 @csrf_exempt
-def customerOrderList(request):
+def orderList(request):
+    """api view for list order in admin page"""
 
     page = request.GET.get("page", 1)
     search = request.GET.get("search")
     marketplace = request.GET.get("marketplace")
-    sortKey = request.GET.get("sortKey", "total_purchase_amount")
+    sortKey = request.GET.get("sortKey", "order_date")
     sortOrder = request.GET.get("sortOrder", 1)
 
-    response = list_unique_customers(
+    response = order_list(
         page=int(page),
         search=search,
         filters={"marketplace": marketplace},

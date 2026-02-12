@@ -1,7 +1,4 @@
 from omnisight.models import Order
-from bson import ObjectId
-from datetime import datetime
-import pprint
 
 
 def list_unique_customers(
@@ -19,7 +16,6 @@ def list_unique_customers(
     """
 
     collection = Order._get_collection()
-    pp = pprint.PrettyPrinter(indent=2)
 
     # -------------------------
     # Build base match stage
@@ -63,8 +59,6 @@ def list_unique_customers(
     # Initial match
     # -------------------------
     pipeline.append({"$match": base_match})
-    print("DEBUG: Base match stage added:")
-    pp.pprint(base_match)
 
     # -------------------------
     # Lookup Marketplace
@@ -82,7 +76,6 @@ def list_unique_customers(
     pipeline.append(
         {"$unwind": {"path": "$marketplace_data", "preserveNullAndEmptyArrays": True}}
     )
-    print("DEBUG: Added $lookup and $unwind for marketplace_data")
 
     # Filter by marketplace name (after unwind) - case-insensitive
     if filters and filters.get("marketplace"):
@@ -95,9 +88,6 @@ def list_unique_customers(
                     }
                 }
             }
-        )
-        print(
-            f"DEBUG: Added marketplace filter: {filters['marketplace']} (case-insensitive)"
         )
 
     # -------------------------
@@ -114,18 +104,24 @@ def list_unique_customers(
             }
         },
     ]
-    debug_data = list(collection.aggregate(pipeline + debug_preview_stage))
-    print("DEBUG: Sample data after initial match + lookup:")
-    pp.pprint(debug_data)
 
     # -------------------------
     # Group by customer + marketplace
     # -------------------------
     # Unwind order_details
-    pipeline.append({"$unwind": {"path": "$order_details", "preserveNullAndEmptyArrays": True}})
+    pipeline.append(
+        {"$unwind": {"path": "$order_details", "preserveNullAndEmptyArrays": True}}
+    )
 
     # Unwind items inside order_details
-    pipeline.append({"$unwind": {"path": "$order_details.items", "preserveNullAndEmptyArrays": True}})
+    pipeline.append(
+        {
+            "$unwind": {
+                "path": "$order_details.items",
+                "preserveNullAndEmptyArrays": True,
+            }
+        }
+    )
 
     # Group by customer + marketplace
     pipeline.append(
@@ -139,9 +135,7 @@ def list_unique_customers(
                 },
                 "total_orders": {"$sum": 1},
                 "total_order_items": {
-                    "$sum": {
-                        "$ifNull": ["$order_details.items.quantity", 1]
-                    }
+                    "$sum": {"$ifNull": ["$order_details.items.quantity", 1]}
                 },
                 "total_purchase_amount": {"$sum": "$order_total"},
                 "first_order_date": {"$min": "$order_date"},
@@ -149,31 +143,6 @@ def list_unique_customers(
             }
         }
     )
-
-    # pipeline.append(
-    #     {
-    #         "$group": {
-    #             "_id": {
-    #                 "customer_name": "$customer_name",
-    #                 "customer_email_id": "$customer_email_id",
-    #                 "marketplace_id": "$marketplace_id",
-    #                 "marketplace_name": "$marketplace_data.name",
-    #             },
-    #             "total_orders": {"$sum": 1},
-    #             "total_order_items": {"$sum": "$items_order_quantity"},
-    #             # "total_order_items": { "$sum": { "$ifNull": ["$items_order_quantity", 1] } },
-    #             # "total_order_items": {
-    #             #     "$sum": {
-    #             #         "$sum": "$order_details.items.quantity"
-    #             #     }
-    #             # },
-    #             "total_purchase_amount": {"$sum": "$order_total"},
-    #             "first_order_date": {"$min": "$order_date"},
-    #             "last_order_date": {"$max": "$order_date"},
-    #         }
-    #     }
-    # )
-    print("DEBUG: Added $group stage")
 
     # -------------------------
     # Calculate average order value
@@ -191,7 +160,6 @@ def list_unique_customers(
             }
         }
     )
-    print("DEBUG: Added $addFields for avg_order_value")
 
     # -------------------------
     # Flatten output
@@ -213,7 +181,6 @@ def list_unique_customers(
             }
         }
     )
-    print("DEBUG: Added $project stage")
 
     # -------------------------
     # Get total count before pagination
@@ -222,7 +189,6 @@ def list_unique_customers(
     count_pipeline.append({"$count": "total"})
     total_result = list(collection.aggregate(count_pipeline))
     total = total_result[0]["total"] if total_result else 0
-    print(f"DEBUG: Total unique customers after filters: {total}")
 
     # -------------------------
     # Sorting + pagination
@@ -230,16 +196,11 @@ def list_unique_customers(
     pipeline.append({"$sort": {sort_by: sort_order}})
     pipeline.append({"$skip": (page - 1) * page_size})
     pipeline.append({"$limit": page_size})
-    print(
-        f"DEBUG: Added $sort, $skip, $limit for page {page} with page_size {page_size}"
-    )
 
     # -------------------------
     # Execute final pipeline
     # -------------------------
     data = list(collection.aggregate(pipeline))
-    print("DEBUG: Sample final aggregated data:")
-    pp.pprint(data[:1])
 
     return {
         "data": data,

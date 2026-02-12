@@ -1,9 +1,11 @@
 from django.urls import path
-from omnisight_v2.views import syncOrders, customerOrderList
+from omnisight_v2.views import syncOrders, customerOrderList, orderList
 
 
 urlpatterns = [
     path("syncOrders/", syncOrders, name="syncOrders"),
     # customer
     path("customer/customerOrderList/", customerOrderList, name="customerOrderList"),
+    #order
+    path("order/orderList/", orderList, name="orderList")
 ]
