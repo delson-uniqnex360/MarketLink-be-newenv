@@ -1,5 +1,6 @@
-from omnisight_v2.operations import list_unique_customers
 from django.views.decorators.csrf import csrf_exempt
+from omnisight_v2.operations import list_unique_customers
+
 
 
 @csrf_exempt

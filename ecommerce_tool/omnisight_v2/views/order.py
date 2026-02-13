@@ -1,5 +1,5 @@
 from django.views.decorators.csrf import csrf_exempt
-from omnisight_v2.operations import order_list
+from omnisight_v2.operations import order_list, order_detail
 
 
 @csrf_exempt
@@ -19,4 +19,11 @@ def orderList(request):
         sort_by=sortKey,
         sort_order=int(sortOrder),
     )
+    return response
+
+
+@csrf_exempt
+def orderDetail(request, order_id):
+
+    response = order_detail(order_id)
     return response

@@ -1,11 +1,9 @@
 from django.http import JsonResponse
-from mongoengine import Q
+from mongoengine import Q, DoesNotExist
 
 from omnisight.models import Marketplace, Order, OrderItems
 from omnisight_v2.helpers import (
     get_amazon_ae_orders,
-    get_amazon_catalog,
-    get_amazon_inventory_data,
     save_amazon_ae_orders,
     get_noon_ae_orders,
     save_noon_ae_orders,
@@ -42,7 +40,7 @@ def sync_amazon_noon_order_data():
         amazon_access_token,
     )
 
-    # save_noon_ae_orders(noon_data, noon_marketplace_doc, noon_access_token)
+    save_noon_ae_orders(noon_data, noon_marketplace_doc, noon_access_token)
 
     return JsonResponse({"message": "Orders synced successfully"})
 
@@ -53,7 +51,6 @@ from mongoengine.queryset.visitor import Q
 def order_list(
     page=1, page_size=24, search=None, filters=None, sort_by="order_date", sort_order=-1
 ):
-    print(filters, search, sort_by, sort_order)
 
     filters = filters or {}
     # Remove invalid keys
@@ -117,6 +114,7 @@ def order_list(
     # --- Transform to response dict ---
     data = []
     for order in orders_list:
+        id = str(order.id)
         order_id = getattr(order, "purchase_order_id", None) or getattr(
             order, "OrderId", None
         )
@@ -146,6 +144,7 @@ def order_list(
 
         data.append(
             {
+                "id": id,
                 "order_id": order_id,
                 "marketplace": marketplace,
                 "order_date": order_date,
@@ -161,3 +160,44 @@ def order_list(
         )
 
     return {"data": data, "page": page, "page_size": page_size, "total": total_count}
+
+
+
+def order_detail(order_id: str) -> dict:
+    """
+    Fetch order from MongoDB via MongoEngine and return structured detail for frontend.
+    """
+    try:
+        order = Order.objects.get(id=order_id)
+    except DoesNotExist:
+        return {"error": "Order not found"}
+
+    # Structure the response
+    order_info = {
+        "order_id": str(order.id),
+        "purchase_order_id": order.purchase_order_id,
+        "status": order.order_status,
+        "order_total": order.order_total,
+        "currency": order.currency,
+        "customer_name": order.customer_name,
+        "geo": order.geo,
+        "shipping_cost": order.shipping_price or 0,
+        "items_order_quantity": order.items_order_quantity or 0,
+        "order_date": order.order_date.isoformat() if order.order_date else None,
+        "items": [],
+    }
+
+    # Flatten items from order_details
+    for detail in order.order_details or []:
+        for item in detail.get("items", []):
+            order_info["items"].append(
+                {
+                    "item_id": item.get("item_id"),
+                    "sku": item.get("sku"),
+                    "name": item.get("name"),
+                    "quantity": item.get("quantity"),
+                    "total_price": item.get("price", {}).get("total_price"),
+                }
+            )
+
+    return order_info

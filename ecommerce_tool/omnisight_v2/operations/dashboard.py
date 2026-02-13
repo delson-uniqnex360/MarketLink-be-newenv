@@ -6,7 +6,7 @@ from typing import List, Optional
 def get_daily_orders(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    marketplaces: Optional[List[str]] = None,
+    marketplace: Optional[List[str]] = None,
 ):
     """
     Returns daily order counts for a given date range (or all orders if start_date/end_date is None),
@@ -19,8 +19,10 @@ def get_daily_orders(
         ...
     ]
     """
-    if marketplaces is None:
+    if marketplace is None:
         marketplaces = ["noon", "amazon"]  # default marketplaces
+    else:
+        marketplaces = [marketplace]
 
     # Determine start and end dates
     if start_date is None or end_date is None:
@@ -67,7 +69,7 @@ def get_daily_orders(
 def calculate_revenue_metrics(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    marketplaces: Optional[List[str]] = None,
+    marketplace: Optional[List[str]] = None,
 ):
     """
     Calculate revenue KPIs:
@@ -77,8 +79,10 @@ def calculate_revenue_metrics(
     - average order value
     """
 
-    if marketplaces is None:
+    if marketplace is None:
         marketplaces = ["noon", "amazon"]
+    else:
+        marketplaces = [marketplace]
 
     # Determine start and end dates
     # If either date is missing, set default range from first/last order
@@ -125,7 +129,8 @@ def calculate_revenue_metrics(
             for detail in order.order_details:
                 items = detail.get("items", [])
                 for item in items:
-                    sku = item.get("sku", "Unknown")
+
+                    sku = item.get("name", "Unknown")
                     item_total = item.get("price", {}).get("total_price", 0)
                     revenue_per_item[sku] = revenue_per_item.get(sku, 0) + item_total
 
@@ -149,12 +154,9 @@ def dashboard_kpi_metrics(marketplace=None, start_date=None, end_date=None):
     if end_date:
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
-    marketplaces = None
-    if marketplace in ["amazon", "noon"]:
-        marketplaces = [marketplace]
 
-    order_graph_data = get_daily_orders(start_date, end_date, marketplaces)
-    revenue_metrics = calculate_revenue_metrics(start_date, end_date, marketplaces)
+    order_graph_data = get_daily_orders(start_date, end_date, marketplace)
+    revenue_metrics = calculate_revenue_metrics(start_date, end_date, marketplace)
 
     return {
         "order_graph_data": order_graph_data,

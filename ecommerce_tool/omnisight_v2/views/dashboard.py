@@ -8,7 +8,7 @@ def dashboardKPIMetrics(request):
 
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
-    marketplaces = request.GET.get("marketplaces")
+    marketplaces = request.GET.get("marketplaces[]")
 
     response = dashboard_kpi_metrics(marketplaces, start_date, end_date, )
     return response
