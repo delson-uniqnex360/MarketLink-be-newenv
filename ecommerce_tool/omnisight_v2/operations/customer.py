@@ -77,7 +77,9 @@ def list_unique_customers(
         {"$unwind": {"path": "$marketplace_data", "preserveNullAndEmptyArrays": True}}
     )
 
+    # -------------------------
     # Filter by marketplace name (after unwind) - case-insensitive
+    # -------------------------
     if filters and filters.get("marketplace"):
         pipeline.append(
             {
@@ -91,29 +93,11 @@ def list_unique_customers(
         )
 
     # -------------------------
-    # Debug: Preview first 10 orders after match + lookup
+    # Unwind orders and items
     # -------------------------
-    debug_preview_stage = [
-        {"$limit": 10},
-        {
-            "$project": {
-                "customer_name": 1,
-                "customer_email_id": 1,
-                "marketplace_id": 1,
-                "marketplace_data": 1,
-            }
-        },
-    ]
-
-    # -------------------------
-    # Group by customer + marketplace
-    # -------------------------
-    # Unwind order_details
     pipeline.append(
         {"$unwind": {"path": "$order_details", "preserveNullAndEmptyArrays": True}}
     )
-
-    # Unwind items inside order_details
     pipeline.append(
         {
             "$unwind": {
@@ -123,7 +107,9 @@ def list_unique_customers(
         }
     )
 
+    # -------------------------
     # Group by customer + marketplace
+    # -------------------------
     pipeline.append(
         {
             "$group": {
@@ -191,9 +177,20 @@ def list_unique_customers(
     total = total_result[0]["total"] if total_result else 0
 
     # -------------------------
+    # Case-insensitive sort for customer_name
+    # -------------------------
+    if sort_by == "customer_name":
+        pipeline.append(
+            {"$addFields": {"sort_name_lower": {"$toLower": "$customer_name"}}}
+        )
+        sort_field = "sort_name_lower"
+    else:
+        sort_field = sort_by
+
+    # -------------------------
     # Sorting + pagination
     # -------------------------
-    pipeline.append({"$sort": {sort_by: sort_order}})
+    pipeline.append({"$sort": {sort_field: sort_order}})
     pipeline.append({"$skip": (page - 1) * page_size})
     pipeline.append({"$limit": page_size})
 

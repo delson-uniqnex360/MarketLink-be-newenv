@@ -45,15 +45,11 @@ def sync_amazon_noon_order_data():
     return JsonResponse({"message": "Orders synced successfully"})
 
 
-from mongoengine.queryset.visitor import Q
-
 
 def order_list(
     page=1, page_size=24, search=None, filters=None, sort_by="order_date", sort_order=-1
 ):
-
     filters = filters or {}
-    # Remove invalid keys
     filters = {k: v for k, v in filters.items() if k is not None and k != ""}
 
     query = Q()
@@ -61,7 +57,7 @@ def order_list(
     # --- Marketplace filter ---
     if "marketplace" in filters:
         marketplaces = filters["marketplace"]
-        if marketplaces:  # only filter if not empty string / None
+        if marketplaces:
             if not isinstance(marketplaces, list):
                 marketplaces = [marketplaces]
             query &= Q(marketplace__in=marketplaces)
@@ -73,43 +69,51 @@ def order_list(
             statuses = [statuses]
         query &= Q(order_status__in=statuses)
 
-    # --- Search on order_id or customer_name ---
+    # --- Search filter ---
     if search:
         search = search.strip()
         query &= Q(purchase_order_id__icontains=search) | Q(
             customer_name__icontains=search
         )
 
-    # --- Pagination ---
-    skip = (page - 1) * page_size
     total_count = Order.objects(query).count()
 
-    # --- Fetch orders without sorting for computed fields ---
-    orders_qs = Order.objects(query).skip(skip).limit(page_size)
-    orders_list = list(orders_qs)
-
-    # --- Python sorting for computed fields ---
+    # --- Determine sort ---
     reverse = sort_order == -1
+    sort_prefix = "-" if sort_order == -1 else ""
 
-    if sort_by == "items_count":
-        orders_list.sort(
-            key=lambda o: getattr(o, "items_order_quantity", 0)
-            or getattr(o, "ProductDetails", {}).get("QuantityOrdered", 0),
-            reverse=reverse,
-        )
-    elif sort_by == "total_amount":
-        orders_list.sort(
-            key=lambda o: getattr(o, "order_total", 0)
-            or getattr(o, "Pricing", {}).get("ItemPrice", {}).get("Amount", 0),
-            reverse=reverse,
-        )
+    # --- Case: computed fields ---
+    if sort_by in ["items_count", "total_amount"]:
+        # Fetch all matching orders and sort in Python before pagination
+        orders_list = list(Order.objects(query))
+        if sort_by == "items_count":
+            orders_list.sort(
+                key=lambda o: getattr(o, "items_order_quantity", 0)
+                or getattr(o, "ProductDetails", {}).get("QuantityOrdered", 0),
+                reverse=reverse,
+            )
+        elif sort_by == "total_amount":
+            orders_list.sort(
+                key=lambda o: getattr(o, "order_total", 0)
+                or getattr(o, "Pricing", {}).get("ItemPrice", {}).get("Amount", 0),
+                reverse=reverse,
+            )
+        # --- Apply pagination after sorting ---
+        start = (page - 1) * page_size
+        end = start + page_size
+        orders_list = orders_list[start:end]
+
     else:
-        # fallback: sort by a database field
-        sort_prefix = "-" if sort_order == -1 else ""
-        sort_expr = f"{sort_prefix}{sort_by}"
-        orders_list = (
-            Order.objects(query).order_by(sort_expr).skip(skip).limit(page_size)
-        )
+        # --- Regular DB sort (case-insensitive for customer_name) ---
+        orders_qs = Order.objects(query)
+        if sort_by == "customer_name":
+            orders_qs = orders_qs.order_by(sort_prefix + "customer_name").collation(
+                {"locale": "en", "strength": 2}
+            )
+        else:
+            orders_qs = orders_qs.order_by(sort_prefix + sort_by)
+        skip = (page - 1) * page_size
+        orders_list = list(orders_qs.skip(skip).limit(page_size))
 
     # --- Transform to response dict ---
     data = []
@@ -160,7 +164,6 @@ def order_list(
         )
 
     return {"data": data, "page": page, "page_size": page_size, "total": total_count}
-
 
 
 def order_detail(order_id: str) -> dict:
