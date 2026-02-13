@@ -6,6 +6,7 @@ from omnisight_v2.views import (
     orderDetail,
     dashboardKPIMetrics,
     productListAPI,
+    productDetail,
 )
 
 
@@ -27,5 +28,10 @@ urlpatterns = [
         "product/productListAPI/",
         productListAPI,
         name="productListAPI",
+    ),
+    path(
+        "product/productDetail/<str:product_id>/",
+        productDetail,
+        name="productDetail",
     ),
 ]

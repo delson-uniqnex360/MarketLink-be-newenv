@@ -10,7 +10,7 @@ def customerOrderList(request):
     search = request.GET.get("search")
     marketplace = request.GET.get("marketplace")
     sortKey = request.GET.get("sortKey", "total_purchase_amount")
-    sortOrder = request.GET.get("sortOrder", 1)
+    sortOrder = request.GET.get("sortOrder", -1)
 
     response = list_unique_customers(
         page=int(page),
