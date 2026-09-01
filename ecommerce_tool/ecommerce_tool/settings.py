@@ -35,6 +35,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://marketplace-frontend-development.vercel.app",
     "https://marketplace-integration-app.vercel.app",
     "https://b2bop.netlify.app",
+    "http://98.93.11.169.nip.io/",
+    "https://98.93.11.169.nip.io/",
 ]
 
 
